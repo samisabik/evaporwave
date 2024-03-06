@@ -2,14 +2,14 @@ import numpy as np
 import cv2 as cv
 import rtmidi
 
-cap = cv.VideoCapture('data/evap_001.mov')
+cap = cv.VideoCapture('data/evap_002.mov')
 
-rgb_threshold = 10
-rgb_pick = (133, 60, 13)
-
+rgb_threshold = 50
+rgb_pick = (100, 100, 100)
 max = 0
-min = 100000
+min = 1000000
 out_midi = 0
+
 def map_range(x, in_min, in_max, out_min, out_max):
   return (x - in_min) * (out_max - out_min) // (in_max - in_min) + out_min
 
@@ -20,7 +20,7 @@ midiout = rtmidi.MidiOut()
 if midiout.get_ports():
     midiout.open_port(0)
 
-note_on = [0x90, 30, 112] # channel 1, middle C, velocity 112
+note_on = [0x90, 30, 112]
 midiout.send_message(note_on)
 
 
@@ -31,8 +31,6 @@ while cap.isOpened():
     frame_id = int(cap.get(cv.CAP_PROP_POS_FRAMES))
     frame = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
     mask = cv.inRange(frame,rgb_start,rgb_end)
-
-    print ("frame id [%s]" % frame_id)
     
     n_px = np.sum(mask == 255)
     
