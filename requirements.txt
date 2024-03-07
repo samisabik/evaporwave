@@ -1,0 +1,5 @@
+tqdm
+numpy
+opencv-python
+python-rtmidi
+cursor
