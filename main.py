@@ -11,9 +11,9 @@ from dataclasses import dataclass, field
 @dataclass
 class mask:
     rgb_point: list
-    rgb_threshold: int
-    rgb_lowerb: list = field(init=False)
-    rgb_upperb: list = field(init=False)
+    threshold: int
+    bgr_lowerb: list = field(init=False)
+    bgr_upperb: list = field(init=False)
     
     point_mask: np.ndarray = field(init=False)
     
@@ -25,14 +25,12 @@ class mask:
     midi_cc: hex
     
     def __post_init__(self):
-        self.rgb_lowerb = (np.array(self.rgb_point) - self.rgb_threshold).clip(0, 255)
-        self.rgb_upperb = (np.array(self.rgb_point) + self.rgb_threshold).clip(0, 255)
+        self.bgr_lowerb = (np.array(self.rgb_point) - self.threshold).clip(0, 255)[::-1]
+        self.bgr_upperb = (np.array(self.rgb_point) + self.threshold).clip(0, 255)[::-1]
         self.data_buffer = [0] * nb_frame
     
     def calculate_mask(self, frame):
-        frame = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
-        mask = cv.inRange(frame,self.rgb_lowerb,self.rgb_upperb)
-        frame = cv.cvtColor(frame, cv.COLOR_RGB2BGR)
+        mask = cv.inRange(frame,self.bgr_lowerb,self.bgr_upperb)
         mask = cv.cvtColor(mask, cv.COLOR_GRAY2BGR)
         mask = cv.bitwise_and(frame, mask)
         self.point_mask = mask
@@ -42,7 +40,7 @@ class mask:
         self.data_buffer.append(self.data)    
         min = np.min(self.data_buffer)
         max = np.max(self.data_buffer)
-        return self.remap(self.data,min,max,0,127)
+        return self.remap(self.data,*(min,max),*(0,127))
     
     def remap(self, val, old_min, old_max, new_min, new_max) -> int:
 
@@ -63,7 +61,7 @@ midiout.open_port(0)
 # Swag / pbar
 os.system('clear')
 cursor.hide()
-pbar = tqdm(total = nb_frame, bar_format='{bar}{percentage:3.0f}% ')
+pbar = tqdm(total = nb_frame, bar_format='{bar}{percentage:3.0f}%', colour="blue")
 
 masks = [
     mask((107, 4, 4), 15, 0x70),
@@ -85,7 +83,8 @@ def main():
         for m in masks:
             m.calculate_mask(frame)
             midi_data = m.calculate_point()
-            m.point_mask = cv.putText(m.point_mask, str(m.rgb_point) + " = " + str(m.data), (50,50), cv.FONT_HERSHEY_SIMPLEX , 1, (255, 255, 255) , 1, cv.LINE_AA) 
+            m.point_mask = cv.putText(m.point_mask, str(m.rgb_point) + " = " + str(m.data), (50,50), cv.FONT_HERSHEY_SIMPLEX , 1, (255, 255, 255) , 1, cv.LINE_AA)
+            m.point_mask = cv.putText(m.point_mask, "midi_out = " + str(midi_data), (50,100), cv.FONT_HERSHEY_SIMPLEX , 1, (255, 255, 255) , 1, cv.LINE_AA) 
             midi_msg = [0xb0, m.midi_cc, midi_data]
             midiout.send_message(midi_msg)
 
