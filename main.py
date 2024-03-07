@@ -3,19 +3,8 @@ import cv2 as cv
 import rtmidi as md
 from dataclasses import dataclass, field
 
-cap = cv.VideoCapture('data/evap_001.mov')
-#cap = cv.VideoCapture(1) 
-nb_frame = int(cap.get(cv.CAP_PROP_FRAME_COUNT))
-
-midiout = md.MidiOut()
-if midiout.get_ports():
-    midiout.open_port(0)
-
-display = "mask_experiments"
-cv.namedWindow(display, cv.WINDOW_NORMAL)
-
-def remap(old_val, old_min, old_max, new_min, new_max):
-    res = (new_max - new_min)*(old_val - old_min) / (old_max - old_min) + new_min
+def remap(val, old_min, old_max, new_min, new_max):
+    res = (new_max - new_min)*(val - old_min) / (old_max - old_min) + new_min
     return res.astype(int)
 
 @dataclass
@@ -29,6 +18,8 @@ class mask:
     data_buffer: np.ndarray = field(init=False)
     
     data: int = field(init=False)
+    
+    midi_cc: hex
     
     def __post_init__(self):
         self.rgb_lowerb = (np.array(self.rgb_point) - self.rgb_threshold).clip(0, 255)
@@ -50,8 +41,16 @@ class mask:
         max = np.max(self.data_buffer)
         return remap(data,min,max,0,127).astype(int)
 
-red_mask = mask((107, 4, 4), 15)
-blue_mask = mask((129, 47, 12), 10)
+cap = cv.VideoCapture('data/evap_001.mov')
+nb_frame = int(cap.get(cv.CAP_PROP_FRAME_COUNT))
+
+midiout = md.MidiOut()
+midiout.open_port(0)
+
+masks = [
+    mask((107, 4, 4), 15, 0x70),
+    mask((129, 47, 12), 10, 0x71)
+]
 
 def main():
     note_on = [0x90, 30, 112]
@@ -61,27 +60,16 @@ def main():
         ret, frame = cap.read()
         if not ret:
             break
-        
-        frame_id = int(cap.get(cv.CAP_PROP_POS_FRAMES))
-        
-        red_mask.calculate_mask(frame)
-        blue_mask.calculate_mask(frame)
+                
+        for m in masks:
+            m.calculate_mask(frame)
+            data = m.calculate_point()
+            m.point_mask = cv.putText(m.point_mask, str(m.rgb_point) + " = " + str(data), (50,50), cv.FONT_HERSHEY_SIMPLEX , 1, (255, 255, 255) , 1, cv.LINE_AA) 
+            midi_mod = [0xb0, m.midi_cc, data]
+            midiout.send_message(midi_mod)
 
-        midi_data_osc1 = red_mask.calculate_point()
-        midi_data_osc2 = blue_mask.calculate_point()
-
-        mod_1 = [0xb0, 0x70, midi_data_osc1]
-        mod_2 = [0xb0, 0x71, midi_data_osc2]
-
-        midiout.send_message(mod_1)
-        midiout.send_message(mod_2)
-
-        red_mask.point_mask = cv.putText(red_mask.point_mask, str(red_mask.rgb_point) + " = " + str(midi_data_osc1), (50,50), cv.FONT_HERSHEY_SIMPLEX , 1, (255, 255, 255) , 1, cv.LINE_AA) 
-        blue_mask.point_mask = cv.putText(blue_mask.point_mask, str(blue_mask.rgb_point) + " = " + str(midi_data_osc2), (50,50), cv.FONT_HERSHEY_SIMPLEX , 1, (255, 255, 255) , 1, cv.LINE_AA) 
-
-        mix = np.concatenate((frame, red_mask.point_mask, blue_mask.point_mask), axis=1) 
-
-        cv.imshow(display, mix)
+        mix = np.concatenate([frame] + [m.point_mask for m in masks], axis=1)
+        cv.imshow("output", mix)
         cv.waitKey(1)
 
     note_off = [0x80, 30, 0]  
