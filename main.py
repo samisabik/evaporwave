@@ -1,70 +1,94 @@
 import numpy as np
 import cv2 as cv
-import rtmidi
+import rtmidi as md
+from dataclasses import dataclass, field
 
-cap = cv.VideoCapture('data/evap_002.mov')
+cap = cv.VideoCapture('data/evap_001.mov')
+#cap = cv.VideoCapture(1) 
+nb_frame = int(cap.get(cv.CAP_PROP_FRAME_COUNT))
 
-rgb_threshold = 50
-rgb_pick = (100, 100, 100)
-max = 0
-min = 1000000
-out_midi = 0
-
-def map_range(x, in_min, in_max, out_min, out_max):
-  return (x - in_min) * (out_max - out_min) // (in_max - in_min) + out_min
-
-rgb_start = (np.array(rgb_pick) - rgb_threshold).clip(0, 255)
-rgb_end = (np.array(rgb_pick) + rgb_threshold).clip(0, 255)
-
-midiout = rtmidi.MidiOut()
+midiout = md.MidiOut()
 if midiout.get_ports():
     midiout.open_port(0)
 
-note_on = [0x90, 30, 112]
-midiout.send_message(note_on)
+display = "mask_experiments"
+cv.namedWindow(display, cv.WINDOW_NORMAL)
 
+def remap(old_val, old_min, old_max, new_min, new_max):
+    res = (new_max - new_min)*(old_val - old_min) / (old_max - old_min) + new_min
+    return res.astype(int)
 
-while cap.isOpened():
-    ret, frame = cap.read()
-    if not ret:
-        break
-    frame_id = int(cap.get(cv.CAP_PROP_POS_FRAMES))
-    frame = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
-    mask = cv.inRange(frame,rgb_start,rgb_end)
+@dataclass
+class mask:
+    rgb_point: list
+    rgb_threshold: int
+    rgb_lowerb: list = field(init=False)
+    rgb_upperb: list = field(init=False)
     
-    n_px = np.sum(mask == 255)
+    point_mask: np.ndarray = field(init=False)
+    data_buffer: np.ndarray = field(init=False)
     
-    if (frame_id > 50):
-        if n_px > max:
-            max = n_px
-        elif n_px < min:
-            min = n_px
-        out_midi = map_range(n_px,min,max,0,127)
-        control_mod = [0xb0, 0x70, out_midi]
-        midiout.send_message(control_mod)
+    data: int = field(init=False)
     
-    frame = cv.cvtColor(frame, cv.COLOR_RGB2BGR)
-    mask = cv.cvtColor(mask, cv.COLOR_GRAY2BGR)
-    detected = cv.bitwise_and(frame, mask)
+    def __post_init__(self):
+        self.rgb_lowerb = (np.array(self.rgb_point) - self.rgb_threshold).clip(0, 255)
+        self.rgb_upperb = (np.array(self.rgb_point) + self.rgb_threshold).clip(0, 255)
+        self.data_buffer = [0] * nb_frame
     
-    font = cv.FONT_HERSHEY_SIMPLEX 
-    org = (50, 50) 
-    fontScale = 1
-    color = (255, 255, 255) 
-    thickness = 1
+    def calculate_mask(self, frame):
+        frame = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
+        mask = cv.inRange(frame,self.rgb_lowerb,self.rgb_upperb)
+        frame = cv.cvtColor(frame, cv.COLOR_RGB2BGR)
+        mask = cv.cvtColor(mask, cv.COLOR_GRAY2BGR)
+        mask = cv.bitwise_and(frame, mask)
+        self.point_mask = mask
     
-    detected = cv.putText(detected, "white_px = " + str(n_px), (50,50), font, fontScale, color, thickness, cv.LINE_AA) 
-    detected = cv.putText(detected, "max_px = " + str(max), (50, 100), font, fontScale, color, thickness, cv.LINE_AA) 
-    detected = cv.putText(detected, "min_px = " + str(min), (50, 150), font, fontScale, color, thickness, cv.LINE_AA) 
-    detected = cv.putText(detected, "out_midi = " + str(out_midi), (50, 200), font, fontScale, color, thickness, cv.LINE_AA) 
+    def calculate_point(self) -> int:
+        data = int(np.sum(self.point_mask > 0))
+        self.data_buffer.append(data)    
+        min = np.min(self.data_buffer)
+        max = np.max(self.data_buffer)
+        return remap(data,min,max,0,127).astype(int)
 
-    mix = np.concatenate((frame, detected), axis=1) 
+red_mask = mask((107, 4, 4), 15)
+blue_mask = mask((129, 47, 12), 10)
 
-    cv.imshow('frame', mix)
-    cv.waitKey(1)
+def main():
+    note_on = [0x90, 30, 112]
+    midiout.send_message(note_on)
 
-note_off = [0x80, 30, 0]  
-midiout.send_message(note_off)
+    while cap.isOpened():
+        ret, frame = cap.read()
+        if not ret:
+            break
+        
+        frame_id = int(cap.get(cv.CAP_PROP_POS_FRAMES))
+        
+        red_mask.calculate_mask(frame)
+        blue_mask.calculate_mask(frame)
 
-cap.release()
-cv.destroyAllWindows()
+        midi_data_osc1 = red_mask.calculate_point()
+        midi_data_osc2 = blue_mask.calculate_point()
+
+        mod_1 = [0xb0, 0x70, midi_data_osc1]
+        mod_2 = [0xb0, 0x71, midi_data_osc2]
+
+        midiout.send_message(mod_1)
+        midiout.send_message(mod_2)
+
+        red_mask.point_mask = cv.putText(red_mask.point_mask, str(red_mask.rgb_point) + " = " + str(midi_data_osc1), (50,50), cv.FONT_HERSHEY_SIMPLEX , 1, (255, 255, 255) , 1, cv.LINE_AA) 
+        blue_mask.point_mask = cv.putText(blue_mask.point_mask, str(blue_mask.rgb_point) + " = " + str(midi_data_osc2), (50,50), cv.FONT_HERSHEY_SIMPLEX , 1, (255, 255, 255) , 1, cv.LINE_AA) 
+
+        mix = np.concatenate((frame, red_mask.point_mask, blue_mask.point_mask), axis=1) 
+
+        cv.imshow(display, mix)
+        cv.waitKey(1)
+
+    note_off = [0x80, 30, 0]  
+    midiout.send_message(note_off)
+
+    cap.release()
+    cv.destroyAllWindows()
+
+if __name__ == "__main__":
+    main()
