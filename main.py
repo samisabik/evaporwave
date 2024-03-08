@@ -1,11 +1,6 @@
-#TODO ADD PRE-RUN MIN/MAX CALCULATION AND WORK ON BGR/RGB 
-
-import os
 import numpy as np
 import cv2 as cv
 import rtmidi as md
-import cursor
-from tqdm import tqdm
 from dataclasses import dataclass, field
 
 @dataclass
@@ -29,10 +24,10 @@ class mask:
         self.bgr_upperb = (np.array(self.rgb_point) + self.threshold).clip(0, 255)[::-1]
         self.data_buffer = [0] * nb_frame
     
-    def calculate_mask(self, frame):
+    def calculate_mask(self, frame, bitwise):
         mask = cv.inRange(frame,self.bgr_lowerb,self.bgr_upperb)
         mask = cv.cvtColor(mask, cv.COLOR_GRAY2BGR)
-        mask = cv.bitwise_and(frame, mask)
+        if bitwise: mask = cv.bitwise_and(frame, mask)
         self.point_mask = mask
     
     def calculate_point(self) -> int:
@@ -58,39 +53,49 @@ nb_frame = int(cap.get(cv.CAP_PROP_FRAME_COUNT))
 midiout = md.MidiOut()
 midiout.open_port(0)
 
-# Swag / pbar
-os.system('clear')
-cursor.hide()
-pbar = tqdm(total = nb_frame, bar_format='{bar}{percentage:3.0f}%', colour="blue")
-
 masks = [
-    mask((107, 4, 4), 15, 0x70),
-    mask((129, 47, 12), 10, 0x71),
+    mask((227, 145, 42), 100, 0x70),
+    mask((128, 9, 0), 20, 0x71),
 ]
 
 def main():
     note_on = [0x90, 30, 112]
     midiout.send_message(note_on)
+    toggle_bitwise = True
+
     while cap.isOpened():
         ret, frame = cap.read()
-        pbar.update(1)        
+        key = cv.waitKey(1)
         
         if not ret:
             cap.set(cv.CAP_PROP_POS_FRAMES, 0)
-            pbar.reset()        
             continue
                     
         for m in masks:
-            m.calculate_mask(frame)
+            m.calculate_mask(frame, toggle_bitwise)
             midi_data = m.calculate_point()
-            m.point_mask = cv.putText(m.point_mask, str(m.rgb_point) + " = " + str(m.data), (50,50), cv.FONT_HERSHEY_SIMPLEX , 1, (255, 255, 255) , 1, cv.LINE_AA)
-            m.point_mask = cv.putText(m.point_mask, "midi_out = " + str(midi_data), (50,100), cv.FONT_HERSHEY_SIMPLEX , 1, (255, 255, 255) , 1, cv.LINE_AA) 
+            h, w, c = m.point_mask.shape
+            cv.rectangle(m.point_mask, (0, h), (w, h - 100), (0,0,0), -1)
+            m.point_mask = cv.putText(m.point_mask, "nPx = " + str(m.data), (20, h - 60), cv.FONT_HERSHEY_SIMPLEX , 1, (200, 200, 200) , 1, cv.LINE_AA)
+            m.point_mask = cv.putText(m.point_mask, "CC_" + str(m.midi_cc) + " = " + str(midi_data), (20,h - 20), cv.FONT_HERSHEY_SIMPLEX , 1, (255, 255, 255) , 1, cv.LINE_AA) 
             midi_msg = [0xb0, m.midi_cc, midi_data]
             midiout.send_message(midi_msg)
 
         mix = np.concatenate([frame] + [m.point_mask for m in masks], axis=1)
-        cv.imshow("output", mix)
-        cv.waitKey(1)
+
+        cv.imshow("output", mix) 
+       
+        #quit
+        if key & 0xFF == ord('q'):
+            break 
+        
+        #pause
+        elif key & 0xFF == ord('p'):
+            cv.waitKey(-1) 
+            
+        #toggle bitwise mask with the frame
+        elif key & 0xFF == ord('t'):
+            toggle_bitwise = not toggle_bitwise
 
     note_off = [0x80, 30, 0]  
     midiout.send_message(note_off)
