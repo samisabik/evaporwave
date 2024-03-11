@@ -4,15 +4,15 @@
     "masks": [
         {
             "name": "Yellow spot, synth noise",
-            "rgb_value": [243,176,91],
-            "rgb_spread": 50,
+            "rgb_value": [247,165,71],
+            "rgb_spread": 30,
             "midi_channel" : 1,
-            "midi_note": 45
+            "midi_note": 21
         },
         {
             "name": "Red edges",
-            "rgb_value": [123,5,0],
-            "rgb_spread": 30,
+            "rgb_value": [129,47,12],
+            "rgb_spread": 10,
             "midi_channel" : 2,
             "midi_note": 30
         }

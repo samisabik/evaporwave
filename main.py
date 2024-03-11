@@ -1,4 +1,4 @@
-import json
+import json, time
 from dataclasses import dataclass, field
 import numpy as np
 import cv2 as cv
@@ -6,6 +6,7 @@ import rtmidi as md
 
 @dataclass
 class mask:
+    name: str
     rgb_point: list
     spread: int
     bgr_lowerb: list = field(init=False)
@@ -66,7 +67,7 @@ def convert_duration(seconds):
 # Loading masks
 masks = [0] * len(settings['masks'])
 for idx, m in enumerate(settings['masks']):
-    masks[idx] = mask(m['rgb_value'],m['rgb_spread'],m['midi_channel'],m['midi_note'])  
+    masks[idx] = mask(m['name'],m['rgb_value'],m['rgb_spread'],m['midi_channel'],m['midi_note'])  
     
 # rtMIDI init
 midiout = md.MidiOut()
@@ -102,6 +103,11 @@ def main():
 
         if not ret:
             cap.set(cv.CAP_PROP_POS_FRAMES, 0)
+            for m in masks:
+                midi_stop_drone(m.midi_channel,m.midi_note)
+                time.sleep(1)
+                midi_start_drone(m.midi_channel,m.midi_note)
+
             continue
                     
         for m in masks:
@@ -109,11 +115,12 @@ def main():
             m.calculate_point()
             h, w, c = m.point_mask.shape
             cv.rectangle(m.point_mask, (0, h), (w, h - 60), (0,0,0), -1)
-            m.point_mask = cv.putText(m.point_mask, str("{:07d}".format(m.data)), (30,45), cv.FONT_HERSHEY_SIMPLEX , 1, (200, 200, 200) , 1, cv.LINE_AA)
-            m.point_mask = cv.putText(m.point_mask, " [" + str("{:03d}".format(m.data_map)) + "]", (200,45), cv.FONT_HERSHEY_SIMPLEX , 1, (200, 200, 200) , 1, cv.LINE_AA)
+            m.point_mask = cv.putText(m.point_mask, m.name, (30,45), cv.FONT_HERSHEY_SIMPLEX , 1, (200, 200, 200) , 1, cv.LINE_AA)
+            m.point_mask = cv.putText(m.point_mask, str("{:07d}".format(m.data)), (30,85), cv.FONT_HERSHEY_SIMPLEX , 1, (200, 200, 200) , 1, cv.LINE_AA)
+            m.point_mask = cv.putText(m.point_mask, " [" + str("{:03d}".format(m.data_map)) + "]", (200,85), cv.FONT_HERSHEY_SIMPLEX , 1, (200, 200, 200) , 1, cv.LINE_AA)
             midi_update_drone(m.midi_channel,m.data_map)
 
-        frame = cv.putText(frame, str(remaining_time), (30,45), cv.FONT_HERSHEY_SIMPLEX , 1, (0, 0, 0) , 1, cv.LINE_AA)
+        frame = cv.putText(frame, str(remaining_time), (30,45), cv.FONT_HERSHEY_SIMPLEX , 1, (0, 0, 255) , 1, cv.LINE_AA)
 
         mix = np.concatenate([frame] + [m.point_mask for m in masks], axis=1)
         cv.imshow("lucas_evaporwave", mix) 
