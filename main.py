@@ -22,12 +22,15 @@ class mask:
 
     midi_channel: int
     midi_note: int
+    map_enable: int = field(init=False)
+
     
     def __post_init__(self):
         self.bgr_lowerb = (np.array(self.rgb_point) - self.spread).clip(0, 255)[::-1]
         self.bgr_upperb = (np.array(self.rgb_point) + self.spread).clip(0, 255)[::-1]
         self.data_buffer = [0] * nb_frame
-    
+        self.map_enable = False
+        
     def calculate_mask(self, frame, bitwise):
         mask = cv.inRange(frame,self.bgr_lowerb,self.bgr_upperb)
         mask = cv.cvtColor(mask, cv.COLOR_GRAY2BGR)
@@ -71,8 +74,9 @@ for idx, m in enumerate(settings['masks']):
     
 # rtMIDI init
 midiout = md.MidiOut()
+available_ports = midiout.get_ports()
 midiout.open_port(0)
-CC_AADR = 0x70
+
 def midi_start_drone(channel, note):
     status = 0x90 | (channel - 1)
     data = [status, note, 127]
@@ -84,13 +88,13 @@ def midi_stop_drone(channel, note):
         midiout.send_message(data)
 def midi_update_drone(channel, data):
     status = 0xb0 | (channel - 1)
-    data = [status, CC_AADR, data]
+    data = [status, 0x01, data]
     midiout.send_message(data)
-
+     
 def main():
         
     toggle_bitwise = True
-    
+
     for m in masks:
         midi_start_drone(m.midi_channel,m.midi_note)
     
@@ -98,29 +102,25 @@ def main():
         ret, frame = cap.read()
         key = cv.waitKey(1)
         
-        frame_id = cap.get(cv.CAP_PROP_POS_FRAMES)
-        remaining_time  = convert_duration((nb_frame / fps)-(frame_id / fps))
-
         if not ret:
             cap.set(cv.CAP_PROP_POS_FRAMES, 0)
-            for m in masks:
-                midi_stop_drone(m.midi_channel,m.midi_note)
-                time.sleep(1)
-                midi_start_drone(m.midi_channel,m.midi_note)
-
             continue
-                    
-        for m in masks:
+        
+        for idx,m in enumerate(masks):
             m.calculate_mask(frame, toggle_bitwise)
             m.calculate_point()
             h, w, c = m.point_mask.shape
-            cv.rectangle(m.point_mask, (0, h), (w, h - 60), (0,0,0), -1)
-            m.point_mask = cv.putText(m.point_mask, m.name, (30,45), cv.FONT_HERSHEY_SIMPLEX , 1, (200, 200, 200) , 1, cv.LINE_AA)
-            m.point_mask = cv.putText(m.point_mask, str("{:07d}".format(m.data)), (30,85), cv.FONT_HERSHEY_SIMPLEX , 1, (200, 200, 200) , 1, cv.LINE_AA)
-            m.point_mask = cv.putText(m.point_mask, " [" + str("{:03d}".format(m.data_map)) + "]", (200,85), cv.FONT_HERSHEY_SIMPLEX , 1, (200, 200, 200) , 1, cv.LINE_AA)
-            midi_update_drone(m.midi_channel,m.data_map)
+            cv.rectangle(m.point_mask, (0, 0), (w, 110), (0,0,0), -1)
+            m.point_mask = cv.putText(m.point_mask, m.name, (30,45), cv.FONT_ITALIC, 1, (255, 255, 255) , 1, cv.LINE_AA)
 
-        frame = cv.putText(frame, str(remaining_time), (30,45), cv.FONT_HERSHEY_SIMPLEX , 1, (0, 0, 255) , 1, cv.LINE_AA)
+            if (key & 0xFF) == 49 + idx:
+                m.map_enable = not m.map_enable
+                time.sleep(0.01)
+            
+            if m.map_enable:
+                m.point_mask = cv.putText(m.point_mask, str("{:07d}".format(m.data)), (30,80), cv.FONT_HERSHEY_DUPLEX, 1, (0, 0, 255) , 1, cv.LINE_AA)
+                m.point_mask = cv.putText(m.point_mask, " [" + str("{:03d}".format(m.data_map)) + "]", (200,80), cv.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255) , 1, cv.LINE_AA)
+                midi_update_drone(m.midi_channel,m.data_map)
 
         mix = np.concatenate([frame] + [m.point_mask for m in masks], axis=1)
         cv.imshow("lucas_evaporwave", mix) 

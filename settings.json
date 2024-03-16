@@ -3,14 +3,14 @@
 
     "masks": [
         {
-            "name": "Yellow spot, synth noise",
+            "name": "yellow spot, synth noise",
             "rgb_value": [247,165,71],
             "rgb_spread": 30,
             "midi_channel" : 1,
             "midi_note": 21
         },
         {
-            "name": "Red edges",
+            "name": "red edges",
             "rgb_value": [129,47,12],
             "rgb_spread": 10,
             "midi_channel" : 2,
