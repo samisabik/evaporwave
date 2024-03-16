@@ -20,16 +20,16 @@ class mask:
     data_min: int = field(init=False)
     data_map: int = field(init=False)
 
+    midi_enable: bool = field(init=False)
     midi_channel: int
     midi_note: int
-    map_enable: int = field(init=False)
 
     
     def __post_init__(self):
         self.bgr_lowerb = (np.array(self.rgb_point) - self.spread).clip(0, 255)[::-1]
         self.bgr_upperb = (np.array(self.rgb_point) + self.spread).clip(0, 255)[::-1]
         self.data_buffer = [0] * nb_frame
-        self.map_enable = False
+        self.midi_enable = False
         
     def calculate_mask(self, frame, bitwise):
         mask = cv.inRange(frame,self.bgr_lowerb,self.bgr_upperb)
@@ -114,12 +114,12 @@ def main():
             m.point_mask = cv.putText(m.point_mask, m.name, (30,45), cv.FONT_ITALIC, 1, (255, 255, 255) , 1, cv.LINE_AA)
 
             if (key & 0xFF) == 49 + idx:
-                m.map_enable = not m.map_enable
+                m.midi_enable = not m.midi_enable
                 time.sleep(0.01)
             
-            if m.map_enable:
-                m.point_mask = cv.putText(m.point_mask, str("{:07d}".format(m.data)), (30,80), cv.FONT_HERSHEY_DUPLEX, 1, (0, 0, 255) , 1, cv.LINE_AA)
-                m.point_mask = cv.putText(m.point_mask, " [" + str("{:03d}".format(m.data_map)) + "]", (200,80), cv.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255) , 1, cv.LINE_AA)
+            if m.midi_enable:
+                m.point_mask = cv.putText(m.point_mask, str("{:07d}".format(m.data)), (30,90), cv.FONT_HERSHEY_DUPLEX, 1, (0, 0, 255) , 1, cv.LINE_AA)
+                m.point_mask = cv.putText(m.point_mask, " [" + str("{:03d}".format(m.data_map)) + "]", (200,90), cv.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255) , 1, cv.LINE_AA)
                 midi_update_drone(m.midi_channel,m.data_map)
 
         mix = np.concatenate([frame] + [m.point_mask for m in masks], axis=1)
