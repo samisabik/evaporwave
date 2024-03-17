@@ -127,6 +127,8 @@ def main():
             elif not m.midi_enable and m.midi_start:
                 m.midi_start = False
                 midi_stop_drone(m.midi_channel,m.midi_note)
+            else:
+                m.point_mask = cv.putText(m.point_mask, "track off", (30,90), cv.FONT_HERSHEY_DUPLEX, 1, (0, 0, 255) , 1, cv.LINE_AA)
 
 
         mix = np.concatenate([frame] + [m.point_mask for m in masks], axis=1)
