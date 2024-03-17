@@ -20,9 +20,11 @@ class mask:
     data_min: int = field(init=False)
     data_map: int = field(init=False)
 
+
     midi_enable: bool = field(init=False)
     midi_channel: int
     midi_note: int
+    midi_start: bool = field(init=False)
 
     
     def __post_init__(self):
@@ -30,6 +32,7 @@ class mask:
         self.bgr_upperb = (np.array(self.rgb_point) + self.spread).clip(0, 255)[::-1]
         self.data_buffer = [0] * nb_frame
         self.midi_enable = False
+        self.midi_start = False
         
     def calculate_mask(self, frame, bitwise):
         mask = cv.inRange(frame,self.bgr_lowerb,self.bgr_upperb)
@@ -95,9 +98,6 @@ def main():
         
     toggle_bitwise = True
 
-    for m in masks:
-        midi_start_drone(m.midi_channel,m.midi_note)
-    
     while cap.isOpened():
         ret, frame = cap.read()
         key = cv.waitKey(1)
@@ -118,22 +118,26 @@ def main():
                 time.sleep(0.01)
             
             if m.midi_enable:
+                if not m.midi_start:
+                    m.midi_start = True
+                    midi_start_drone(m.midi_channel,m.midi_note)
                 m.point_mask = cv.putText(m.point_mask, str("{:07d}".format(m.data)), (30,90), cv.FONT_HERSHEY_DUPLEX, 1, (0, 0, 255) , 1, cv.LINE_AA)
                 m.point_mask = cv.putText(m.point_mask, " [" + str("{:03d}".format(m.data_map)) + "]", (200,90), cv.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255) , 1, cv.LINE_AA)
                 midi_update_drone(m.midi_channel,m.data_map)
+            elif not m.midi_enable and m.midi_start:
+                m.midi_start = False
+                midi_stop_drone(m.midi_channel,m.midi_note)
+
 
         mix = np.concatenate([frame] + [m.point_mask for m in masks], axis=1)
-        cv.imshow("lucas_evaporwave", mix) 
+        cv.imshow("", mix) 
 
         match (key & 0xFF):
             case 113: break 
             case 112: cv.waitKey(-1) 
             case 114: cap.set(cv.CAP_PROP_POS_FRAMES, 0)
             case 116: toggle_bitwise = not toggle_bitwise
-        
-    for m in masks:
-        midi_stop_drone(m.midi_channel,m.midi_note)
-
+            
     cap.release()
     cv.destroyAllWindows()
 
