@@ -7,6 +7,9 @@ import rtmidi as md
 @dataclass
 class mask:
     name: str
+    
+    enable: bool
+    
     rgb_point: list
     spread: int
     bgr_lowerb: list = field(init=False)
@@ -20,18 +23,14 @@ class mask:
     data_min: int = field(init=False)
     data_map: int = field(init=False)
 
-
-    midi_enable: bool = field(init=False)
     midi_channel: int
     midi_note: int
     midi_start: bool = field(init=False)
 
-    
     def __post_init__(self):
         self.bgr_lowerb = (np.array(self.rgb_point) - self.spread).clip(0, 255)[::-1]
         self.bgr_upperb = (np.array(self.rgb_point) + self.spread).clip(0, 255)[::-1]
         self.data_buffer = [0]
-        self.midi_enable = False
         self.midi_start = False
         
     def calculate_mask(self, frame, bitwise):
@@ -55,12 +54,15 @@ class mask:
         else:
             return 0
 
+def hex2rgb(hex):
+  return tuple(int(hex[i:i+2], 16) for i in (0, 2, 4))
+
 def load_masks(json_path):
     f = open(json_path)
     settings = json.load(f)
     masks = [0] * len(settings['masks'])
     for idx, m in enumerate(settings['masks']):
-        masks[idx] = mask(m['name'],m['rgb_value'],m['rgb_spread'],m['midi_channel'],m['midi_note'])  
+        masks[idx] = mask(m['name'],m['enable'],hex2rgb(m['rgb_value']),m['rgb_spread'],m['midi_channel'],m['midi_note'])  
     return masks
 
 def load_media(json_path):
@@ -125,16 +127,16 @@ def main():
             m.point_mask = cv.putText(m.point_mask, " / " + m.name, (30,45), cv.FONT_HERSHEY_DUPLEX, 1, (255, 255, 255) , 1, cv.LINE_AA)
 
             if (key & 0xFF) == 49 + idx:
-                m.midi_enable = not m.midi_enable
+                m.enable = not m.enable
                 time.sleep(0.01)
             
-            if m.midi_enable:
+            if m.enable:
                 if not m.midi_start:
                     m.midi_start = True
                     midi_start(midi_session,m.midi_channel,m.midi_note)
                 m.point_mask = cv.putText(m.point_mask, " / ch" + str(m.midi_channel) + " / " + str("{:03d}".format(m.data_map)), (30,90), cv.FONT_HERSHEY_DUPLEX, 1, (0, 0, 255) , 1, cv.LINE_AA)
                 midi_update(midi_session,m.midi_channel,m.data_map)
-            elif not m.midi_enable and m.midi_start:
+            elif not m.enable and m.midi_start:
                 m.midi_start = False
                 midi_stop(midi_session,m.midi_channel,m.midi_note)
             else:
