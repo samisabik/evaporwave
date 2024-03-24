@@ -114,7 +114,8 @@ def main():
             masks = load_masks(json_path)
             cap = load_media(json_path)
             for m in masks:
-                midi_start(midi_session,m.midi_channel,m.midi_note)
+                if m.enable:
+                    midi_start(midi_session,m.midi_channel,m.midi_note)
         if not ret:
             cap.set(cv.CAP_PROP_POS_FRAMES, 0)
             continue
