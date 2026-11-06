@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>evaporwave</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <span class="brand">evaporwave</span>
+    <span class="stat"><i id="dot"></i><span id="fps">-</span> fps</span>
+    <span class="stat">Frame <span id="frame-count">-</span></span>
+    <span class="stat">OSC <span id="osc">-</span></span>
+    <span class="stat right" id="save-state"></span>
+    <button id="panic" class="btn" title="Send note off for every sounding note">All notes off</button>
+  </header>
+
+  <main>
+    <section class="viewer">
+      <nav class="tools">
+        <div class="seg">
+          <button data-view="raw" class="on">Raw</button>
+          <button data-view="mask">Mask</button>
+        </div>
+        <button id="pick-btn" class="btn">Pick colour</button>
+        <button id="full-roi-btn" class="btn">Reset region</button>
+        <span class="hint">Drag on the image to set the selected track's region</span>
+      </nav>
+      <div class="stage">
+        <div class="frame" id="frame">
+          <img id="stream" alt="">
+          <canvas id="overlay"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <aside>
+      <section>
+        <div class="head">
+          <h2>Tracks</h2>
+          <button id="add-track" class="btn">Add</button>
+        </div>
+        <div id="tracks"></div>
+      </section>
+
+      <section id="editor">
+        <h2 id="editor-title">Track</h2>
+        <div class="features" id="features"></div>
+        <div id="editor-fields"></div>
+      </section>
+
+      <section>
+        <h2>Music</h2>
+        <div id="music-form"></div>
+      </section>
+
+      <details>
+        <summary>Source</summary>
+        <div id="source-form"></div>
+      </details>
+      <details>
+        <summary>OSC output</summary>
+        <div id="osc-form"></div>
+      </details>
+      <details>
+        <summary>Processing</summary>
+        <div id="perf-form"></div>
+      </details>
+    </aside>
+  </main>
+
+  <template id="track-tpl">
+    <div class="track">
+      <div class="t-head">
+        <input type="color" data-k="color" class="swatch" title="Colour">
+        <input type="text" class="t-id" spellcheck="false" title="Track name, also used in the OSC address /evap/&lt;name&gt;/...">
+        <input type="checkbox" data-k="enable" title="Enabled">
+        <button class="del" title="Remove track">&times;</button>
+      </div>
+      <div class="t-live">
+        <div class="meter"><div class="fill"></div></div>
+        <span class="t-out">-</span>
+      </div>
+    </div>
+  </template>
+
+  <script src="app.js"></script>
+</body>
+</html>

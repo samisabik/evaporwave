@@ -1,0 +1,145 @@
+{
+  "source": {
+    "type": "file",
+    "path": "../data/evap_001.mov",
+    "device": 0,
+    "width": 1280,
+    "height": 720,
+    "fps": 30
+  },
+  "processing": {
+    "width": 320
+  },
+  "stream": {
+    "width": 640,
+    "fps": 15,
+    "jpeg_quality": 69
+  },
+  "osc": {
+    "enabled": true,
+    "host": "127.0.0.1",
+    "port": 9000
+  },
+  "music": {
+    "root": 0,
+    "scale": "minor"
+  },
+  "tracks": [
+    {
+      "id": "test",
+      "enable": false,
+      "color": "f2f5eb",
+      "roi": [
+        0.3341772151898734,
+        0.33558878667673836,
+        0.13670886075949368,
+        0.013532763532763503
+      ],
+      "match": {
+        "mode": "rgb",
+        "spread": 70,
+        "hue_tol": 53,
+        "sat_min": 31,
+        "sat_max": 32,
+        "val_min": 10,
+        "val_max": 100,
+        "blur": 8,
+        "open": 5,
+        "close": 9
+      },
+      "motion": {
+        "threshold": 191,
+        "colour_only": true
+      },
+      "signal": {
+        "feature": "brightness",
+        "range": "auto",
+        "window_s": 63.5,
+        "in_min": 0.0,
+        "in_max": 1.0,
+        "attack": 1.69,
+        "release": 1.26,
+        "curve": 1.0,
+        "invert": true
+      },
+      "midi": {
+        "mode": "drone",
+        "channel": 1,
+        "cc": 1,
+        "out_min": 0,
+        "out_max": 127,
+        "note": 58,
+        "pitch": "fixed",
+        "note_low": 48,
+        "note_high": 72,
+        "quantize": true,
+        "velocity_from": "level",
+        "velocity": 100,
+        "vel_min": 40,
+        "vel_max": 127,
+        "threshold": 0.5,
+        "hysteresis": 0.05,
+        "retrigger": true,
+        "cooldown_s": 0.05
+      }
+    },
+    {
+      "id": "track2",
+      "enable": true,
+      "color": "ff2600",
+      "roi": [
+        0.15443037974683543,
+        0.455246906334858,
+        0.8101265822784811,
+        0.07407407407407407
+      ],
+      "match": {
+        "mode": "rgb",
+        "spread": 10,
+        "hue_tol": 12,
+        "sat_min": 20,
+        "sat_max": 100,
+        "val_min": 10,
+        "val_max": 100,
+        "blur": 0,
+        "open": 0,
+        "close": 0
+      },
+      "motion": {
+        "threshold": 25,
+        "colour_only": false
+      },
+      "signal": {
+        "feature": "coverage",
+        "range": "auto",
+        "window_s": 10.0,
+        "in_min": 0.0,
+        "in_max": 1.0,
+        "attack": 0.0,
+        "release": 0.0,
+        "curve": 1.0,
+        "invert": false
+      },
+      "midi": {
+        "mode": "drone",
+        "channel": 2,
+        "cc": 1,
+        "out_min": 0,
+        "out_max": 127,
+        "note": 60,
+        "pitch": "fixed",
+        "note_low": 48,
+        "note_high": 72,
+        "quantize": true,
+        "velocity_from": "level",
+        "velocity": 100,
+        "vel_min": 40,
+        "vel_max": 127,
+        "threshold": 0.5,
+        "hysteresis": 0.05,
+        "retrigger": true,
+        "cooldown_s": 0.05
+      }
+    }
+  ]
+}

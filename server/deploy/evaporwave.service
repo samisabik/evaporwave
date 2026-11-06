@@ -1,0 +1,13 @@
+[Unit]
+Description=evaporwave capture server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=pi
+WorkingDirectory=/home/pi/evaporwave/server
+ExecStart=/home/pi/evaporwave/server/.venv/bin/python -m evap --port 8000
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
